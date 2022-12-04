@@ -168,6 +168,17 @@ int main(){
   	cout << "Loaded " << mapCloud->points.size() << " data points from map.pcd" << endl;
 	renderPointCloud(viewer, mapCloud, "map", Color(0,0,1)); 
 
+	PointCloudT::Ptr mapCloudFiltered = VoxelFilterCloud(mapCloud);
+
+	pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
+	// Setting minimum transformation difference for termination condition.
+  	ndt.setTransformationEpsilon (.0001);
+  	// Setting maximum step size for More-Thuente line search.
+  	ndt.setStepSize (1);
+  	//Setting Resolution of NDT grid structure (VoxelGridCovariance).
+  	ndt.setResolution (1);
+  	ndt.setInputTarget (mapCloudFiltered);
+
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
 	typename pcl::PointCloud<PointT>::Ptr scanCloud (new pcl::PointCloud<PointT>);
 
