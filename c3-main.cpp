@@ -41,10 +41,10 @@ std::chrono::time_point<std::chrono::system_clock> currentTime;
 vector<ControlState> cs;
 
 bool refresh_view = false;
+int upcount = 0;
 
-double filterRes = 0.5;
+Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ>& ndt, PointCloudT::Ptr source, Pose startingPose, int iterations){
 
-Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt, PointCloudT::Ptr source, Pose startingPose, int iterations){
 
   	Eigen::Matrix4f init_guess = transform3D(startingPose.rotation.yaw, startingPose.rotation.pitch, startingPose.rotation.roll, startingPose.position.x, startingPose.position.y, startingPose.position.z).cast<float>(); 
 
@@ -54,13 +54,16 @@ Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointX
 	PointCloudT::Ptr cloud_ndt (new PointCloudT());
 	ndt.align (*cloud_ndt, init_guess);
 	Eigen::Matrix4d transformation_matrix = ndt.getFinalTransformation ().cast<double>();
+
+	//cout << "iterations: " << ndt.getFinalNumIteration() << endl;
   	return transformation_matrix;
 
 }
 
-PointCloudT::Ptr VoxelFilterCloud(PointCloudT::Ptr cloud){
+PointCloudT::Ptr VoxelFilterCloud(PointCloudT::Ptr& cloud){
 	pcl::VoxelGrid<PointT> vg;
   	vg.setInputCloud(cloud);
+	double filterRes = 1;
   	vg.setLeafSize(filterRes, filterRes, filterRes);
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
   	vg.filter(*cloudFiltered);
@@ -78,6 +81,7 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 		cs.push_back(ControlState(0, 0.02, 0)); 
   	}
   	if (event.getKeySym() == "Up" && event.keyDown()){
+		cout << "up " << ++upcount << endl;
 		cs.push_back(ControlState(0.1, 0, 0));
   	}
 	else if (event.getKeySym() == "Down" && event.keyDown()){
@@ -172,11 +176,11 @@ int main(){
 
 	pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
 	// Setting minimum transformation difference for termination condition.
-  	ndt.setTransformationEpsilon (.0001);
+  	ndt.setTransformationEpsilon (.001);
   	// Setting maximum step size for More-Thuente line search.
-  	ndt.setStepSize (1);
+  	//ndt.setStepSize (1);
   	//Setting Resolution of NDT grid structure (VoxelGridCovariance).
-  	ndt.setResolution (1);
+  	ndt.setResolution (5);
   	ndt.setInputTarget (mapCloudFiltered);
 
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
@@ -242,7 +246,8 @@ int main(){
 
 			// TODO: Find pose transform by using ICP or NDT matching
 			//pose = ....
-			Eigen::Matrix4d transform = NDT(ndt, cloudFiltered, pose, 3);
+			Eigen::Matrix4d transform = NDT(ndt, cloudFiltered, pose, 100);
+		//	cout << "transform " << transform << endl;
 			pose = getPose(transform);
 
 			// TODO: Transform scan so it aligns with ego's actual pose and render that scan
