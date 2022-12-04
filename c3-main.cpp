@@ -41,6 +41,32 @@ std::chrono::time_point<std::chrono::system_clock> currentTime;
 vector<ControlState> cs;
 
 bool refresh_view = false;
+
+double filterRes = 0.5;
+
+Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt, PointCloudT::Ptr source, Pose startingPose, int iterations){
+
+  	Eigen::Matrix4f init_guess = transform3D(startingPose.rotation.yaw, startingPose.rotation.pitch, startingPose.rotation.roll, startingPose.position.x, startingPose.position.y, startingPose.position.z).cast<float>(); 
+
+  	ndt.setMaximumIterations (iterations);
+	ndt.setInputSource (source);
+  	
+	PointCloudT::Ptr cloud_ndt (new PointCloudT());
+	ndt.align (*cloud_ndt, init_guess);
+	Eigen::Matrix4d transformation_matrix = ndt.getFinalTransformation ().cast<double>();
+  	return transformation_matrix;
+
+}
+
+PointCloudT::Ptr VoxelFilterCloud(PointCloudT::Ptr cloud){
+	pcl::VoxelGrid<PointT> vg;
+  	vg.setInputCloud(scans[0]);
+  	vg.setLeafSize(filterRes, filterRes, filterRes);
+	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
+  	vg.filter(*cloudFiltered);
+	return cloudFiltered;
+}
+
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer)
 {
 
@@ -206,7 +232,7 @@ int main(){
 			//pose = ....
 
 			// TODO: Transform scan so it aligns with ego's actual pose and render that scan
-
+// pcl::transformPointCloud (*cloudFiltered, *transformed_scan, transform);
 			viewer->removePointCloud("scan");
 			// TODO: Change `scanCloud` below to your transformed scan
 			renderPointCloud(viewer, scanCloud, "scan", Color(1,0,0) );
